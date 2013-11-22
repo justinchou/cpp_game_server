@@ -1,0 +1,119 @@
+We Use The Redis CPP Client Package From redis.io Which has Two Bugs:
+
+As Described Below:
+
+redis c++接口在实现zset操作时，有两个小bug:
+1. void recv_int_ok_reply_(int socket)
+    原来实现，当recv_int_reply_(socket) != 1时，就认为有错误，从而抛出异常：throw protocol_error("expecting int reply of 1");
+    但实际上，如zadd操作：
+    如果某个member已经是有序集的成员，那么更新这个member的score值，并通过重新插入这个member元素，来保证该member在正确的位置上，并返回0； add成功返回1；如果key不存在，则创建一个空的有序集并执行zadd操作；当key存在但不是有序集类型时，返回一个错误。
+    修改：
+
+void recv_int_ok_reply_(int socket)
+{
+    if (recv_int_reply_(socket) < 0)
+        throw protocol_error("expecting int reply of <0");
+}
+
+2.void zrangebyscore(const string_type & key, double min, double max, string_score_vector & out, int_type offset = 0, int_type max_count = -1, int range_modification = 0)
+    调用，zrangebyscore_base(true, key, min, max, res, offset, max_count, range_modification);
+    第一个参数值等于true表明，需要返回score值。但是，zrangebyscore_base在实现时并未考虑这一参数。
+    修改：在zrangebyscore_base函数实现时，加上
+
+if(withscores) {
+    m << "WITHSCORES";
+}
+
+The First One Appers At line 1635.
+The Second One Appers At line 2375.
+
+More Infomation, Please Read The Following Blog As Details:
+
+http://blog.csdn.net/happylife1527/article/details/8438386 
+
+
+If You Use Makefile Method to Build You Project, And Accidentally Include The redisclient.h In More Than One File, You May Got The Following Error:
+
+
+src/redis/redisclient.cpp: In function ‘void test_cluster_dbsize(redis::client&)’:
+src/redis/redisclient.cpp:3: error: redefinition of ‘void test_cluster_dbsize(redis::client&)’
+src/redis/redisclient.h:3221: error: ‘void test_cluster_dbsize(redis::client&)’ previously defined here
+src/redis/redisclient.cpp: In function ‘boost::shared_ptr<redis::base_client<redis::default_hasher> > init_non_cluster_client()’:
+src/redis/redisclient.cpp:14: error: redefinition of ‘boost::shared_ptr<redis::base_client<redis::default_hasher> > init_non_cluster_client()’
+src/redis/redisclient.h:3232: error: ‘boost::shared_ptr<redis::base_client<redis::default_hasher> > init_non_cluster_client()’ previously defined here
+src/redis/redisclient.cpp: In function ‘boost::shared_ptr<redis::base_client<redis::default_hasher> > init_cluster_client()’:
+src/redis/redisclient.cpp:23: error: redefinition of ‘boost::shared_ptr<redis::base_client<redis::default_hasher> > init_cluster_client()’
+src/redis/redisclient.h:3241: error: ‘boost::shared_ptr<redis::base_client<redis::default_hasher> > init_cluster_client()’ previously defined here
+make: *** [redisclient.o] Error 1
+
+
+This Means That You Include The redisclient.h in each .o File, When Combine All .o file Into The Final Program, The Confilicts.
+
+To Solve This, You Must New A redisclient.cpp File In The Same Folder With redisclient.h As Followed:
+
+----------------------------------------------------------------------------
+
+            #include "redisclient.h"
+            
+            void test_cluster_dbsize(redis::client & c)
+            {
+              redis::client::int_type count;
+              for(size_t i=0; i < c.connections().size(); i++)
+              {
+                redis::client::int_type curSize = c.dbsize( c.connections()[i] );
+                std::cerr << "DB#" << i << " contains " << curSize << " keys" << std::endl;
+                count += curSize;
+              }
+            }
+            
+            boost::shared_ptr<redis::client> init_non_cluster_client()
+            {
+              const char* c_host = getenv("REDIS_HOST");
+              std::string host = "localhost";
+              if(c_host)
+                host = c_host;
+              return boost::shared_ptr<redis::client>( new redis::client(host) );
+            }
+            
+            boost::shared_ptr<redis::client> init_cluster_client()
+            {
+              std::vector<redis::connection_data> redis_server;
+            
+              const char* c_host = getenv("REDIS_HOST");
+              std::string host = "localhost";
+              if(c_host)
+                host = c_host;
+              
+              {
+                redis::connection_data con;
+                con.host = host;
+                con.port = 6379;
+                con.dbindex = 14;
+                redis_server.push_back(con);
+              }
+              {
+                redis::connection_data con;
+                con.host = host;
+                con.port = 6380;
+                con.dbindex = 14;
+                redis_server.push_back(con);
+              }
+              {
+                redis::connection_data con;
+                con.host = host;
+                con.port = 6381;
+                con.dbindex = 14;
+              }
+            }
+
+----------------------------------------------------------------------------
+
+What's More, You May Change The redisclient.h File To The Following Lines From Line 2317 To Bottom "#endif // REDISCLIENT_H":
+
+----------------------------------------------------------------------------
+
+            extern void test_cluster_dbsize(redis::client & c);
+            extern boost::shared_ptr<redis::client> init_non_cluster_client();
+            extern boost::shared_ptr<redis::client> init_cluster_client();
+
+----------------------------------------------------------------------------
