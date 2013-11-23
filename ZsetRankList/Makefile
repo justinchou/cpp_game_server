@@ -11,12 +11,12 @@ VPATH = ${SOURCE} ${REDIS}
 LIBNAME=libredisclient.a
 CLIENTOBJS=anet.o
 
-APP=redisTest
-APPOBJS=redisTest.o
+APP=ZsetRankList
+APPOBJS=ZsetRankList.o apposition.o redisclient.o
 APPLIBS=$(LIBNAME) -lstdc++ -lpthread -lboost_thread-mt
 
 all: $(LIBNAME) $(APP)
-	make tidy
+#	make tidy
 $(LIBNAME): $(CLIENTOBJS)
 	ar rcs $(LIBNAME) $(CLIENTOBJS)
 $(APP): $(LIBNAME) $(APPOBJS)
@@ -24,7 +24,9 @@ $(APP): $(LIBNAME) $(APPOBJS)
 
 
 anet.o: anet.c fmacros.h anet.h
-redisTest.o: redisclient.h redisTest.cpp
+redisclient.o: redisclient.h redisclient.cpp
+ZsetRankList.o: redisclient.h ZsetRankList.cpp
+apposition.o: redisclient.h apposition.cpp apposition.h
 
 tidy:
 	mv ${LIBNAME} ${CLIENTOBJS} ${APPOBJS} ${TEMP_PATH}
@@ -34,7 +36,7 @@ uninstall:
 	cd ${INSTALL_PATH} && rm -rf ${APP}
 
 test: $(APP)
-	@./redisTest
+	@./${APP}
 check: test
 exec: test
 e: test

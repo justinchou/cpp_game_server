@@ -1631,7 +1631,18 @@ namespace redis
       
       makecmd m("ZRANGEBYSCORE");
       m << key << min_str << max_str;
-        
+
+      /**
+       * A Little Bug:
+       *
+       * The First param withscores is not used !
+       *
+       */      
+      
+      if(withscores) {  
+        m << "WITHSCORES";  
+      }
+  
       if(max_count != -1 || offset > 0)
       {
         std::cerr << "Adding limit: " << offset << " " << max_count << std::endl;
@@ -2361,7 +2372,18 @@ namespace redis
     
     void recv_int_ok_reply_(int socket)
     {
-      if (recv_int_reply_(socket) != 1)
+      /**
+       * A Little Bug: 
+       *
+       * If update the score of a member which exists in this sorted sets, 
+       * redis returns 0, so the code think it return fails !
+       * 
+       * Only add new one return 1 , is allowed! 
+       *
+       * so change   if (recv_int_reply_(socket) != 1)   to   if (recv_int_reply_(socket) < 0)
+       *
+       */
+      if (recv_int_reply_(socket) < 0)
         throw protocol_error("expecting int reply of 1");
     }
     
@@ -3192,68 +3214,9 @@ std::basic_istream<ch, char_traits>& operator>>(std::basic_istream<ch, char_trai
   return is;
 }
 
-void test_cluster_dbsize(redis::client & c)
-{
-  redis::client::int_type count;
-  for(size_t i=0; i < c.connections().size(); i++)
-  {
-    redis::client::int_type curSize = c.dbsize( c.connections()[i] );
-    std::cerr << "DB#" << i << " contains " << curSize << " keys" << std::endl;
-    count += curSize;
-  }
-}
-
-boost::shared_ptr<redis::client> init_non_cluster_client()
-{
-  const char* c_host = getenv("REDIS_HOST");
-  std::string host = "localhost";
-  if(c_host)
-    host = c_host;
-  return boost::shared_ptr<redis::client>( new redis::client(host) );
-}
-
-boost::shared_ptr<redis::client> init_cluster_client()
-{
-  std::vector<redis::connection_data> redis_server;
-
-  const char* c_host = getenv("REDIS_HOST");
-  std::string host = "localhost";
-  if(c_host)
-    host = c_host;
-  
-  {
-    redis::connection_data con;
-    con.host = host;
-    con.port = 6379;
-    con.dbindex = 14;
-    redis_server.push_back(con);
-  }
-  {
-    redis::connection_data con;
-    con.host = host;
-    con.port = 6380;
-    con.dbindex = 14;
-    redis_server.push_back(con);
-  }
-  {
-    redis::connection_data con;
-    con.host = host;
-    con.port = 6381;
-    con.dbindex = 14;
-    redis_server.push_back(con);
-  }
-  {
-    redis::connection_data con;
-    con.host = host;
-    con.port = 6382;
-    con.dbindex = 14;
-    redis_server.push_back(con);
-  }
-
-  boost::shared_ptr<redis::client> cluster(
-    new redis::client(redis_server.begin(), redis_server.end() )
-  );
-  return cluster;
-}
+extern void test_cluster_dbsize(redis::client & c);
+extern boost::shared_ptr<redis::client> init_non_cluster_client();
+extern boost::shared_ptr<redis::client> init_cluster_client();
 
 #endif // REDISCLIENT_H
+

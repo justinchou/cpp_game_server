@@ -65,8 +65,13 @@ public:
 };
 
 void setScore(redis::client &c,string key, string uid, int score);
+void setScore(redis::client &c,string key, string uid, double score);
 int getRank(redis::client &c,string key, string uid, int score);
+int getRank(redis::client &c,string key, string uid);
+
 HashList *reHashObject(redis::client &c,string arr[],string uid,int score);
+HashList *reHashObject(redis::client &c,string arr[]);
 void getRankList(redis::client &c,RankList *rlist, string key, string uid, int score, int amount);
+void getRankList(redis::client &c,RankList *rlist, string key, string uid, double score, int amount);
 
 #endif

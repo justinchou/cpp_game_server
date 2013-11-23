@@ -1,4 +1,6 @@
 #include "apposition.h"
+#include <time.h>
+#include <limits.h>
 #include <string>
 #include <iostream>
 
@@ -26,10 +28,22 @@ void HashObject::show(int rank)
     cout<<"rank"<<rank<<"\tuid:"<<this->uid<<"\tscore:"<<this->score<<endl;
 }
 
+
+
 void setScore(redis::client &c,string key, string uid, int score)
 {
     c.zadd(key,score,uid);
 }
+
+void setScore(redis::client &c,string key, string uid, double score)
+{
+    time_t rawtime;
+    time(&rawtime);
+    double leftTime = INT_MAX - rawtime;
+    score += leftTime / 1000000000;
+    c.zadd(key,score,uid);
+}
+
 
 int getRank(redis::client &c,string key, string uid, int score)
 {
@@ -50,10 +64,16 @@ int getRank(redis::client &c,string key, string uid, int score)
     return rank + 1;
 }
 
+int getRank(redis::client &c,string key, string uid)
+{
+    int rank  = c.zrevrank(key,uid);
+    return rank + 1;
+}
+
+
 void reHashObject(HashList *hlist, redis::client::string_score_vector &list,string uid,int score)
 {
     int length = list.size();
-//    HashList *hlist = new HashList(length);
     bool exchange = true;
     bool exclude = false;
     string key;
@@ -104,6 +124,35 @@ void reHashObject(HashList *hlist, redis::client::string_score_vector &list,stri
 
 }
 
+void reHashObject(HashList *hlist, redis::client::string_score_vector &list)
+{
+    int length = list.size();
+    string key;
+    int value;
+
+    for(int i=0; i<length; i++)
+    {
+        redis::client::string_score_pair kv = list[i];
+        key = kv.first;
+        value = kv.second;
+
+        HashObject *p = new HashObject(key,value);
+
+        if (hlist->head != NULL && hlist->tail != NULL)
+        {
+            p->prev = hlist->tail;
+            hlist->tail->next = p;
+            hlist->tail = p;
+        }
+        if (hlist->head == NULL) {
+            hlist->head = p;
+        }
+        if (hlist->tail == NULL) {
+            hlist->tail = p;
+        }
+    }
+}
+
 void getRankList(redis::client &c,RankList *rlist, string key, string uid, int score, int amount)
 {
     int start = 0;
@@ -113,6 +162,21 @@ void getRankList(redis::client &c,RankList *rlist, string key, string uid, int s
     int length = list.size();
     HashList *toplist = new HashList(length);
     reHashObject(toplist,list,uid,score);
+
+    HashObject *myrank = new HashObject(uid,score);
+    rlist->toplist = toplist;
+    rlist->myrank = myrank;
+}
+
+void getRankList(redis::client &c,RankList *rlist, string key, string uid, double score, int amount)
+{
+    int start = 0;
+    redis::client::string_score_vector list;
+    c.zrevrange(key,start,amount,list);
+
+    int length = list.size();
+    HashList *toplist = new HashList(length);
+    reHashObject(toplist,list);
 
     HashObject *myrank = new HashObject(uid,score);
     rlist->toplist = toplist;
