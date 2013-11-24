@@ -1,4 +1,4 @@
-game_server
+cpp_game_server
 ===========
 
 Game server modules and useful algorithm writen with C/C++.
