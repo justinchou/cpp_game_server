@@ -1,28 +1,28 @@
-# Makefile for the socket programming example
+CFLAGS=-g
 
-simple_server_objects = ServerSocket.o Socket.o simple_server_main.o
-simple_client_objects = ClientSocket.o Socket.o simple_client_main.o
+SERVER=server
+CLIENT=client
+Pthread=pthread
+PthreadServer=PthreadServer
+ForkServer=ForkServer
+stack=stack
+ALLFILES=$(SERVER) $(CLIENT) $(Pthread) $(PthreadServer) $(ForkServer) $(stack)
+ALL: $(ALLFILES)
+	chmod +x $(ALLFILES)
 
-all : simple_server simple_client
-
-simple_server: $(simple_server_objects)
-	g++ -o simple_server $(simple_server_objects)
-simple_client: $(simple_client_objects)
-	g++ -o simple_client $(simple_client_objects)
-
-Socket: Socket.cpp Socket.h
-ServerSocket: ServerSocket.cpp ServerSocket.h
-ClientSocket: ClientSocket.cpp ClientSocket.h
-simple_server_main: simple_server_main.cpp
-simple_client_main: simple_client_main.cpp
+$(CLIENT): client.cpp
+	g++ $(CFLAGS) -o $(CLIENT) client.cpp
+$(SERVER): server.cpp
+	g++ $(CFLAGS) -o $(SERVER) server.cpp
+$(PthreadServer): PthreadServer.cpp
+	g++ $(CFLAGS) -o $(PthreadServer) PthreadServer.cpp -lpthread
+$(Pthread): pthread.cpp
+	g++ $(CFLAGS) -o $(Pthread) pthread.cpp -lpthread
+$(ForkServer): ForkServer.cpp
+	g++ $(CFLAGS) -o $(ForkServer) ForkServer.cpp -lpthread
+$(stack): stack.cpp
+	g++ -g -rdynamic -o $(stack) stack.cpp
 
 clean:
-	rm -f *.o simple_server simple_client
-s:
-	./simple_server &
-	sleep 2
-	wait 
-	./simple_client
-e:
-	-ps -ef | grep simple_server | grep -v grep | cut -d ' ' -f 4 | xargs kill -9
+	rm -rf $(ALLFILES)
 
