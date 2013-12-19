@@ -1,0 +1,1 @@
+chinese simplified for iphone
