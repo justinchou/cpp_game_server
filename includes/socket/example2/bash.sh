@@ -1,7 +1,0 @@
-echo ""
-netstat -lanp | grep -E "Foreign|6666" | grep -v "STREAM"
-echo ""
-echo "================================================================================================"
-echo ""
-ps -ef | grep -E "\.\/server|\.\/client"
-echo ""
