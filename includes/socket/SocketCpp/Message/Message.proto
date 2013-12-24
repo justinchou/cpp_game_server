@@ -1,0 +1,17 @@
+message Message{
+  
+  enum IdType{
+    ID = 0;
+    EMAIL = 1;
+    PHONE = 2;
+  }
+
+  message UserInfo{
+    required string id = 1;
+    required IdType type = 2 [default = ID];
+  }
+  
+  required UserInfo fromUser = 1;
+  required UserInfo toUser = 2;
+  required string message = 3;
+}
